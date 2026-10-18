@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Role {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      RoleName  @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  users     User[]
+
+  @@map("roles")
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  roleId        String         @map("role_id") @db.Uuid
+  name          String         @db.VarChar(100)
+  email         String         @unique @db.VarChar(255)
+  password      String         @db.VarChar(255)
+  phone         String?        @db.VarChar(20)
+  avatar        String?
+  isVerified    Boolean        @default(false) @map("is_verified")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
+  activityLogs  ActivityLog[]
+  favorites     Favorite[]
+  notifications Notification[]
+  orders        Order[]
+  organizer     Organizer?
+  role          Role           @relation(fields: [roleId], references: [id])
+
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Organizer {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @map("user_id") @db.Uuid
+  orgName     String    @map("org_name") @db.VarChar(150)
+  description String?
+  logo        String?
+  website     String?   @db.VarChar(255)
+  isApproved  Boolean   @default(false) @map("is_approved")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  artists     Artist[]
+  events      Event[]
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("organizers")
+}
+
+model Artist {
+  id          String        @id @default(uuid()) @db.Uuid
+  organizerId String        @map("organizer_id") @db.Uuid
+  name        String        @db.VarChar(100)
+  genre       String?       @db.VarChar(50)
+  bio         String?
+  image       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  deletedAt   DateTime?     @map("deleted_at")
+  organizer   Organizer     @relation(fields: [organizerId], references: [id])
+  events      EventArtist[]
+
+  @@index([organizerId])
+  @@map("artists")
+}
+
+model Venue {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(150)
+  address   String
+  city      String    @db.VarChar(100)
+  province  String    @db.VarChar(100)
+  capacity  Int
+  mapUrl    String?   @map("map_url")
+  image     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  events    Event[]
+
+  @@map("venues")
+}
+
+model Event {
+  id          String           @id @default(uuid()) @db.Uuid
+  organizerId String           @map("organizer_id") @db.Uuid
+  venueId     String           @map("venue_id") @db.Uuid
+  title       String           @db.VarChar(200)
+  slug        String           @unique @db.VarChar(250)
+  description String
+  banner      String?
+  startDate   DateTime         @map("start_date")
+  endDate     DateTime         @map("end_date")
+  status      EventStatus      @default(DRAFT)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  deletedAt   DateTime?        @map("deleted_at")
+  artists     EventArtist[]
+  organizer   Organizer        @relation(fields: [organizerId], references: [id])
+  venue       Venue            @relation(fields: [venueId], references: [id])
+  favorites   Favorite[]
+  categories  TicketCategory[]
+
+  @@index([slug])
+  @@index([organizerId])
+  @@index([status])
+  @@index([startDate])
+  @@map("events")
+}
+
+model EventArtist {
+  id       String @id @default(uuid()) @db.Uuid
+  eventId  String @map("event_id") @db.Uuid
+  artistId String @map("artist_id") @db.Uuid
+  artist   Artist @relation(fields: [artistId], references: [id])
+  event    Event  @relation(fields: [eventId], references: [id])
+
+  @@unique([eventId, artistId])
+  @@map("event_artists")
+}
+
+model TicketCategory {
+  id         String      @id @default(uuid()) @db.Uuid
+  eventId    String      @map("event_id") @db.Uuid
+  name       String      @db.VarChar(100)
+  price      Decimal     @db.Decimal(12, 2)
+  quota      Int
+  sold       Int         @default(0)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  deletedAt  DateTime?   @map("deleted_at")
+  orderItems OrderItem[]
+  event      Event       @relation(fields: [eventId], references: [id])
+
+  @@index([eventId])
+  @@map("ticket_categories")
+}
+
+model Order {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
+  orderNumber String      @unique @map("order_number") @db.VarChar(50)
+  totalAmount Decimal     @map("total_amount") @db.Decimal(14, 2)
+  status      OrderStatus @default(PENDING)
+  expiresAt   DateTime    @map("expires_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  deletedAt   DateTime?   @map("deleted_at")
+  items       OrderItem[]
+  user        User        @relation(fields: [userId], references: [id])
+  payment     Payment?
+  tickets     Ticket[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id               String         @id @default(uuid()) @db.Uuid
+  orderId          String         @map("order_id") @db.Uuid
+  ticketCategoryId String         @map("ticket_category_id") @db.Uuid
+  quantity         Int
+  unitPrice        Decimal        @map("unit_price") @db.Decimal(12, 2)
+  subtotal         Decimal        @db.Decimal(14, 2)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  order            Order          @relation(fields: [orderId], references: [id])
+  ticketCategory   TicketCategory @relation(fields: [ticketCategoryId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id          String         @id @default(uuid()) @db.Uuid
+  orderId     String         @unique @map("order_id") @db.Uuid
+  midtransId  String?        @unique @map("midtrans_id") @db.VarChar(100)
+  snapToken   String?        @map("snap_token") @db.VarChar(255)
+  snapUrl     String?        @map("snap_url")
+  amount      Decimal        @db.Decimal(14, 2)
+  method      PaymentMethod?
+  status      PaymentStatus  @default(PENDING)
+  paidAt      DateTime?      @map("paid_at")
+  rawResponse Json?          @map("raw_response")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  deletedAt   DateTime?      @map("deleted_at")
+  order       Order          @relation(fields: [orderId], references: [id])
+
+  @@index([midtransId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Ticket {
+  id        String       @id @default(uuid()) @db.Uuid
+  orderId   String       @map("order_id") @db.Uuid
+  qrCode    String       @unique @map("qr_code") @db.VarChar(255)
+  qrImage   String?      @map("qr_image")
+  status    TicketStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  deletedAt DateTime?    @map("deleted_at")
+  scans     TicketScan[]
+  order     Order        @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([qrCode])
+  @@map("tickets")
+}
+
+model TicketScan {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  scannedAt DateTime @default(now()) @map("scanned_at")
+  location  String?  @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_scans")
+}
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, eventId])
+  @@map("favorites")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  deletedAt DateTime?        @map("deleted_at")
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String?        @map("user_id") @db.Uuid
+  action    ActivityAction
+  entity    String         @db.VarChar(50)
+  entityId  String?        @map("entity_id") @db.Uuid
+  metadata  Json?
+  ipAddress String?        @map("ip_address") @db.VarChar(45)
+  createdAt DateTime       @default(now()) @map("created_at")
+  user      User?          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+enum RoleName {
+  USER
+  ORGANIZER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  QRIS
+  OTHER
+}
+
+enum TicketStatus {
+  ACTIVE
+  USED
+  CANCELLED
+  EXPIRED
+}
+
+enum NotificationType {
+  ORDER
+  PAYMENT
+  EVENT
+  SYSTEM
+  ACCOUNT
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  SCAN
+  PAYMENT
+}

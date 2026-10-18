@@ -1,0 +1,16 @@
+import { z } from "zod";
+
+export const createVenueSchema = z.object({
+  name: z.string().min(2).max(150),
+  address: z.string().min(5),
+  city: z.string().min(2).max(100),
+  province: z.string().min(2).max(100),
+  capacity: z.number().int().positive(),
+  mapUrl: z.string().url().optional(),
+  image: z.string().optional(),
+});
+
+export const updateVenueSchema = createVenueSchema.partial();
+
+export type CreateVenueInput = z.infer<typeof createVenueSchema>;
+export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;

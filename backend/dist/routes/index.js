@@ -1,0 +1,31 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_routes_1 = __importDefault(require("../modules/auth/auth.routes"));
+const venue_routes_1 = __importDefault(require("../modules/venue/venue.routes"));
+const artist_routes_1 = __importDefault(require("../modules/artist/artist.routes"));
+const event_routes_1 = __importDefault(require("../modules/event/event.routes"));
+const ticket_category_routes_1 = __importDefault(require("../modules/ticket-category/ticket-category.routes"));
+const order_routes_1 = __importDefault(require("../modules/order/order.routes"));
+const payment_routes_1 = __importDefault(require("../modules/payment/payment.routes"));
+const ticket_routes_1 = __importDefault(require("../modules/ticket/ticket.routes"));
+const organizer_routes_1 = __importDefault(require("../modules/organizer/organizer.routes"));
+const dashboard_routes_1 = __importDefault(require("../modules/dashboard/dashboard.routes"));
+const favorites_routes_1 = __importDefault(require("../modules/favorites/favorites.routes"));
+const router = (0, express_1.Router)();
+router.use("/auth", auth_routes_1.default);
+router.use("/organizers", organizer_routes_1.default);
+router.use("/venues", venue_routes_1.default);
+router.use("/artists", artist_routes_1.default);
+router.use("/events", event_routes_1.default);
+router.use("/ticket-categories", ticket_category_routes_1.default);
+router.use("/orders", order_routes_1.default);
+router.use("/payments", payment_routes_1.default);
+router.use("/tickets", ticket_routes_1.default);
+router.use("/dashboard", dashboard_routes_1.default);
+router.use("/favorites", favorites_routes_1.default);
+exports.default = router;
+//# sourceMappingURL=index.js.map
