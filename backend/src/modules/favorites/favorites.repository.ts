@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../lib/prisma";
 
 const eventInclude = {
@@ -7,7 +8,17 @@ const eventInclude = {
   ticket_categories: { where: { deleted_at: null } },
 };
 
-export const favoritesRepository = {
+type FavoriteWithEvent = Prisma.favoritesGetPayload<{
+  include: { events: { include: typeof eventInclude } };
+}>;
+type Favorite = Prisma.favoritesGetPayload<{}>;
+
+export const favoritesRepository: {
+  findByUser(userId: string): Prisma.PrismaPromise<FavoriteWithEvent[]>;
+  findOne(userId: string, eventId: string): Prisma.PrismaPromise<Favorite | null>;
+  create(userId: string, eventId: string): Prisma.PrismaPromise<Favorite>;
+  remove(userId: string, eventId: string): Prisma.PrismaPromise<Favorite>;
+} = {
   findByUser(userId: string) {
     return prisma.favorites.findMany({
       where: { user_id: userId, events: { deleted_at: null } },
