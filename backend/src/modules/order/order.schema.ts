@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 export const checkoutSchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: z.string().min(1).max(36),
   items: z.array(
     z.object({
-      ticketCategoryId: z.string().uuid(),
+      ticketCategoryId: z.string().min(1).max(36),
       quantity: z.number().int().positive(),
     })
   ).min(1),

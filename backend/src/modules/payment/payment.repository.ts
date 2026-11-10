@@ -40,8 +40,8 @@ export const paymentRepository: any = {
     fraudStatus?: string;
   }) {
     return prisma.$transaction(async (tx) => {
-      const payment = await tx.payments.update({
-        where: { id },
+      const updated = await tx.payments.updateMany({
+        where: { id, status: { not: payments_status.PAID } },
         data: {
           status: payments_status.PAID,
           method: data.method,
@@ -55,6 +55,11 @@ export const paymentRepository: any = {
         },
       });
 
+      if (updated.count === 0) {
+        return tx.payments.findUniqueOrThrow({ where: { id } });
+      }
+
+      const payment = await tx.payments.findUniqueOrThrow({ where: { id } });
       const order = await tx.orders.update({
         where: { id: payment.order_id },
         data: { status: orders_status.CONFIRMED },
@@ -96,8 +101,8 @@ export const paymentRepository: any = {
 
   updatePaymentFailed(id: string, status: payments_status, rawResponse: any) {
     return prisma.$transaction(async (tx) => {
-      const payment = await tx.payments.update({
-        where: { id },
+      const updated = await tx.payments.updateMany({
+        where: { id, status: payments_status.PENDING },
         data: {
           status,
           raw_response: JSON.stringify(rawResponse),
@@ -109,6 +114,12 @@ export const paymentRepository: any = {
           method: rawResponse.payment_type,
         }
       });
+
+      if (updated.count === 0) {
+        return tx.payments.findUniqueOrThrow({ where: { id } });
+      }
+
+      const payment = await tx.payments.findUniqueOrThrow({ where: { id } });
 
       // Update order to cancelled/expired
       const orderStatus = status === payments_status.EXPIRED ? orders_status.EXPIRED : orders_status.CANCELLED;

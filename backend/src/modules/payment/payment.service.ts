@@ -8,6 +8,9 @@ import { payments_status } from "@prisma/client";
 const MIDTRANS_SNAP_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
   ? "https://app.midtrans.com/snap/v1/transactions"
   : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+const MIDTRANS_STATUS_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
+  ? "https://api.midtrans.com/v2"
+  : "https://api.sandbox.midtrans.com/v2";
 
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
 
@@ -24,6 +27,50 @@ function verifySignature(payload: any) {
   const source = `${payload.order_id}${payload.status_code}${payload.gross_amount}${MIDTRANS_SERVER_KEY}`;
   const expected = crypto.createHash("sha512").update(source).digest("hex");
   return payload.signature_key === expected;
+}
+
+async function applyTransactionStatus(payload: any) {
+  const order = await orderRepository.findByOrderNumber(payload.order_id);
+  if (!order) throw ApiError.notFound(`Order ${payload.order_id} not found`);
+
+  let payment = await paymentRepository.findByOrderId(order.id);
+  if (!payment) {
+    payment = await paymentRepository.createPayment({
+      orderId: order.id,
+      amount: Number(order.total_amount),
+    });
+  }
+
+  const transactionStatus = payload.transaction_status;
+  const fraudStatus = payload.fraud_status;
+  const paymentType = payload.payment_type || "OTHER";
+  const transactionId = payload.transaction_id || "";
+
+  if (transactionStatus === "capture" && fraudStatus === "challenge") {
+    await paymentRepository.updatePaymentFailed(payment.id, payments_status.FAILED, payload);
+  } else if (transactionStatus === "settlement" || (transactionStatus === "capture" && fraudStatus === "accept")) {
+    await paymentRepository.updatePaymentSuccess(payment.id, {
+      method: paymentType,
+      paidAt: payload.transaction_time ? new Date(payload.transaction_time) : new Date(),
+      rawResponse: payload,
+      midtransId: transactionId,
+      transactionStatus,
+      fraudStatus,
+    });
+  } else if (["cancel", "deny", "expire"].includes(transactionStatus)) {
+    const status = transactionStatus === "expire" ? payments_status.EXPIRED : payments_status.FAILED;
+    await paymentRepository.updatePaymentFailed(payment.id, status, payload);
+  }
+
+  const [updatedPayment, updatedOrder] = await Promise.all([
+    paymentRepository.findByOrderId(order.id),
+    orderRepository.findById(order.id),
+  ]);
+
+  return {
+    paymentStatus: updatedPayment?.status ?? payment.status,
+    orderStatus: updatedOrder?.status ?? order.status,
+  };
 }
 
 export const paymentService = {
@@ -93,58 +140,42 @@ export const paymentService = {
     };
   },
 
+  async syncStatus(orderId: string, userId: string) {
+    const order = await orderRepository.findById(orderId);
+    if (!order) throw ApiError.notFound("Order not found");
+    if (order.user_id !== userId) throw ApiError.forbidden("Not your order");
+
+    const payment = await paymentRepository.findByOrderId(order.id);
+    if (!payment) throw ApiError.notFound("Payment not found for this order");
+    if (payment.status === payments_status.PAID) {
+      return { paymentStatus: payment.status, orderStatus: order.status };
+    }
+    if (!MIDTRANS_SERVER_KEY) {
+      throw ApiError.internal("Midtrans server key is not configured. Please set MIDTRANS_SERVER_KEY in .env");
+    }
+
+    let statusPayload: any;
+    try {
+      const response = await axios.get(
+        `${MIDTRANS_STATUS_URL}/${encodeURIComponent(order.invoice_number)}/status`,
+        { headers: { Authorization: getAuthHeader(), Accept: "application/json" } },
+      );
+      statusPayload = response.data;
+    } catch (err: any) {
+      console.error("Midtrans status check error:", err.response?.data || err.message);
+      throw ApiError.internal("Failed to verify payment status with payment gateway");
+    }
+
+    if (statusPayload.order_id !== order.invoice_number) {
+      throw ApiError.internal("Payment gateway returned a status for a different order");
+    }
+    return applyTransactionStatus(statusPayload);
+  },
+
   async handleWebhook(payload: any) {
     try {
       if (!verifySignature(payload)) throw ApiError.unauthorized("Invalid Midtrans signature");
-
-      const orderNumber = payload.order_id;
-      const transactionStatus = payload.transaction_status;
-      const fraudStatus = payload.fraud_status;
-      const paymentType = payload.payment_type || "OTHER";
-      const transactionId = payload.transaction_id;
-
-      const order = await orderRepository.findByOrderNumber(orderNumber);
-      if (!order) throw ApiError.notFound(`Order ${orderNumber} not found`);
-
-      let payment = await paymentRepository.findByOrderId(order.id);
-      if (!payment) {
-        // If payment doesn't exist, create it (e.g. mock test directly calling webhook without Snap first)
-        payment = await paymentRepository.createPayment({
-          orderId: order.id,
-          amount: Number(order.total_amount),
-        });
-      }
-
-      if (payment.status === payments_status.PAID) return { success: true };
-
-      if (transactionStatus === "capture") {
-        if (fraudStatus === "challenge") {
-          await paymentRepository.updatePaymentFailed(payment.id, payments_status.FAILED, payload);
-        } else if (fraudStatus === "accept") {
-          await paymentRepository.updatePaymentSuccess(payment.id, {
-            method: paymentType,
-            paidAt: new Date(),
-            rawResponse: payload,
-            midtransId: transactionId,
-            transactionStatus,
-            fraudStatus,
-          });
-        }
-      } else if (transactionStatus === "settlement") {
-        await paymentRepository.updatePaymentSuccess(payment.id, {
-          method: paymentType,
-          paidAt: new Date(),
-          rawResponse: payload,
-          midtransId: transactionId,
-          transactionStatus,
-          fraudStatus,
-        });
-      } else if (["cancel", "deny", "expire"].includes(transactionStatus)) {
-        const status = transactionStatus === "expire" ? payments_status.EXPIRED : payments_status.FAILED;
-        await paymentRepository.updatePaymentFailed(payment.id, status, payload);
-      }
-
-      return { success: true };
+      return await applyTransactionStatus(payload);
     } catch (e: any) {
       console.error("Webhook processing error:", e);
       throw e;

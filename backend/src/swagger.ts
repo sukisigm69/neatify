@@ -453,6 +453,48 @@ const swaggerDocument = {
         },
       },
     },
+    "/auth/profile": {
+      put: {
+        tags: ["Auth"],
+        summary: "Update current user profile",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", minLength: 2, maxLength: 100, example: "Nama Baru" },
+                  phone: { type: "string", maxLength: 20, example: "081234567890" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Updated user profile",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    message: { type: "string", example: "Profile updated" },
+                    data: { $ref: "#/components/schemas/User" },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: "#/components/responses/ValidationError" },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
     "/auth/register-organizer": {
       post: {
         tags: ["Auth"],
@@ -1497,6 +1539,43 @@ const swaggerDocument = {
         },
       },
     },
+    "/payments/{orderId}/status": {
+      post: {
+        tags: ["Payment"],
+        summary: "Synchronize payment status",
+        description: "Authenticated. Checks the payment status with Midtrans and creates tickets when payment is confirmed.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: {
+            description: "Payment status synchronized",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        paymentStatus: { type: "string", enum: ["PENDING", "PAID", "FAILED", "EXPIRED"] },
+                        orderStatus: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Invalid order ID", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
     "/payments/webhook": {
       post: {
         tags: ["Payment"],
@@ -1533,7 +1612,10 @@ const swaggerDocument = {
                     success: { type: "boolean", example: true },
                     data: {
                       type: "object",
-                      properties: { success: { type: "boolean", example: true } },
+                      properties: {
+                        paymentStatus: { type: "string", enum: ["PENDING", "PAID", "FAILED", "EXPIRED"] },
+                        orderStatus: { type: "string" },
+                      },
                     },
                   },
                 },

@@ -132,6 +132,9 @@ The collection automatically saves JWT tokens:
 - [ ] Login non-existent email → 401
 - [ ] Get /auth/me with valid token → 200
 - [ ] Get /auth/me without token → 401
+- [ ] Update /auth/profile with valid token → 200; verify name remains after login
+- [ ] Update /auth/profile without token → 401
+- [ ] Update /auth/profile with invalid name or phone → 400
 - [ ] Register as organizer → 201
 
 ### Organizer Module

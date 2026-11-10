@@ -1,20 +1,129 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, useAuthStore, useTicketStore } from "@/lib/store";
+import { useEffect, useState, type FormEvent } from "react";
+import { api, useAuthStore, useTicketStore, type User as UserData } from "@/lib/store";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EventBannerImage } from "@/components/EventBannerImage";
 import { User, Ticket, ShoppingBag, Bell, Shield, Settings, LogOut, CalendarDays, MapPin, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 type MenuItem = {
   key: string;
   label: string;
   icon: typeof User;
 };
+
+function ProfileForm({ user }: { user: UserData }) {
+  const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone || "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFeedback(null);
+    if (name.trim().length < 2) {
+      setFeedback({ type: "error", message: "Nama harus terdiri dari minimal 2 karakter." });
+      return;
+    }
+    if (phone && !/^[0-9+()\s-]{7,20}$/.test(phone)) {
+      setFeedback({ type: "error", message: "Format nomor telepon tidak valid." });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await api.put<{ success: boolean; message?: string; data: UserData }>("/auth/profile", {
+        name: name.trim(),
+        phone,
+      });
+      if (res.data.success) {
+        useAuthStore.setState({ user: res.data.data });
+        setName(res.data.data.name);
+        setPhone(res.data.data.phone || "");
+        setFeedback({ type: "success", message: "Profil berhasil diperbarui!" });
+      } else {
+        setFeedback({ type: "error", message: res.data.message || "Gagal memperbarui profil." });
+      }
+    } catch {
+      setFeedback({ type: "error", message: "Profil gagal disimpan. Periksa koneksi, lalu coba lagi." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} aria-busy={isSaving} className="bg-white rounded-xl border border-brand-border p-6 space-y-5">
+      <div>
+        <label htmlFor="profile-name" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+        <input
+          id="profile-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="name"
+          minLength={2}
+          maxLength={100}
+          required
+          className="w-full min-h-11 px-4 py-2.5 rounded-xl border border-brand-border bg-white text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="profile-email" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Email</label>
+        <div className="relative">
+          <input
+            id="profile-email"
+            type="email"
+            value={user.email}
+            disabled
+            className="w-full px-4 py-2.5 rounded-xl border border-brand-border bg-surface-container-low text-sm text-on-surface-variant cursor-not-allowed"
+          />
+          <Lock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="profile-phone" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Telepon</label>
+        <input
+          id="profile-phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Masukkan nomor telepon"
+          autoComplete="tel"
+          maxLength={20}
+          className="w-full min-h-11 px-4 py-2.5 rounded-xl border border-brand-border bg-white text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        />
+      </div>
+
+      {feedback && (
+        <div
+          role={feedback.type === "error" ? "alert" : "status"}
+          aria-live={feedback.type === "error" ? "assertive" : "polite"}
+          className={`p-3 rounded-xl text-sm ${
+            feedback.type === "success"
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+              : "bg-red-50 text-red-600 border border-red-200"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="min-h-11 px-8 py-3 rounded-xl bg-primary-container text-white text-sm font-medium hover:bg-brand-primary-dark transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+      </button>
+    </form>
+  );
+}
 
 const menuItems: MenuItem[] = [
   { key: "personal", label: "Info Pribadi", icon: User },
@@ -32,22 +141,10 @@ export default function ProfilePage() {
   const [activeMenu, setActiveMenu] = useState("personal");
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
   useEffect(() => {
     checkAuth();
     fetchTickets();
   }, [checkAuth, fetchTickets]);
-
-  useEffect(() => {
-    if (user) {
-      setName(user.name);
-      setPhone(user.phone || "");
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!authLoading && !token) {
@@ -73,36 +170,6 @@ export default function ProfilePage() {
 
   const now = new Date();
   const upcomingTicket = tickets.find((t) => t.startDate && new Date(t.startDate) > now);
-
-  const handleSave = async () => {
-    setFeedback(null);
-    if (!name.trim()) {
-      setFeedback({ type: "error", message: "Nama tidak boleh kosong." });
-      return;
-    }
-    if (phone && !/^[0-9+-\s()]{7,20}$/.test(phone)) {
-      setFeedback({ type: "error", message: "Format nomor telepon tidak valid." });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const res = await api.put("/auth/profile", { name, phone });
-      if (res.data.success) {
-        checkAuth();
-        setFeedback({ type: "success", message: "Profil berhasil diperbarui!" });
-      } else {
-        setFeedback({ type: "error", message: res.data.message || "Gagal memperbarui profil." });
-      }
-    } catch {
-      if (user) {
-        useAuthStore.setState({ user: { ...user, name, phone } });
-      }
-      setFeedback({ type: "success", message: "Profil disimpan (lokal)." });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -161,72 +228,18 @@ export default function ProfilePage() {
                 <>
                   <h2 className="font-display text-xl font-bold text-on-surface mb-6">Info Pribadi</h2>
 
-                  <div className="bg-white rounded-xl border border-brand-border p-6 space-y-5">
-                    <div>
-                      <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-brand-border bg-white text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Email</label>
-                      <div className="relative">
-                        <input
-                          type="email"
-                          value={user.email}
-                          disabled
-                          className="w-full px-4 py-2.5 rounded-xl border border-brand-border bg-surface-container-low text-sm text-on-surface-variant cursor-not-allowed"
-                        />
-                        <Lock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">Telepon</label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="Masukkan nomor telepon"
-                        className="w-full px-4 py-2.5 rounded-xl border border-brand-border bg-white text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                      />
-                    </div>
-
-                    {feedback && (
-                      <div
-                        className={`p-3 rounded-xl text-sm ${
-                          feedback.type === "success"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-red-50 text-red-600 border border-red-200"
-                        }`}
-                      >
-                        {feedback.message}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="px-8 py-2.5 rounded-xl bg-primary-container text-white text-sm font-medium hover:bg-brand-primary-dark transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-                    </button>
-                  </div>
+                  <ProfileForm user={user} />
 
                   {upcomingTicket && (
                     <div className="mt-6 bg-brand-cream rounded-xl border border-brand-border p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       <div className="w-14 h-14 rounded-xl overflow-hidden relative flex-shrink-0 bg-primary-container/20">
-                        {upcomingTicket.eventBanner ? (
-                          <Image src={upcomingTicket.eventBanner} alt={upcomingTicket.event || ""} fill className="object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Ticket size={20} className="text-primary/30" />
-                          </div>
-                        )}
+                        <EventBannerImage
+                          src={upcomingTicket.eventBanner}
+                          alt={upcomingTicket.event || "Event"}
+                          className="h-full w-full object-cover"
+                          fallbackClassName="flex h-full w-full items-center justify-center text-primary/30"
+                          iconSize={20}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-primary-container uppercase tracking-wider mb-1">Event Berikutnya</p>

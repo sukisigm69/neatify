@@ -234,10 +234,12 @@ export interface Ticket {
 }
 
 export interface Order {
+  id: string;
   invoiceNumber: string;
   orderStatus: string;
   paymentStatus: string;
   paymentMethod: string | null;
+  hasPaymentSession: boolean;
   purchaseDate: string;
   grandTotal: number;
   totalTicket: number;

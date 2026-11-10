@@ -31,7 +31,11 @@ export default function LoginPage() {
       if (res.data.success) {
         login(res.data.data.token, res.data.data.user);
         const role = res.data.data.user.roles?.name;
-        router.push(roleHome(role));
+        const redirect = new URLSearchParams(window.location.search).get("redirect");
+        const safeRedirect = redirect?.startsWith("/") && !redirect.startsWith("//")
+          ? redirect
+          : roleHome(role);
+        router.push(safeRedirect);
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };

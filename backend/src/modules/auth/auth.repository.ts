@@ -1,6 +1,7 @@
 import prisma from "../../lib/prisma";
 import { roles_name } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
+import { UpdateProfileInput } from "./auth.schema";
 
 export const authRepository: any = {
   findUserByEmail(email: string) {
@@ -31,6 +32,17 @@ export const authRepository: any = {
   findUserById(id: string) {
     return prisma.users.findFirst({
       where: { id, deleted_at: null },
+      include: { roles: true },
+    });
+  },
+
+  updateUserProfile(id: string, data: UpdateProfileInput) {
+    return prisma.users.update({
+      where: { id },
+      data: {
+        name: data.name,
+        ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
+      },
       include: { roles: true },
     });
   },

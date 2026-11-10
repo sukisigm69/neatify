@@ -28,11 +28,7 @@ export const orderController = {
 
   async listMy(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sortBy = req.query.sortBy as "newest" | "oldest" | undefined;
-      const search = req.query.search as string | undefined;
-      const status = req.query.status as any | undefined;
+      const { page = 1, limit = 10, sortBy, search, status } = res.locals.orderQuery;
       
       const result = await orderService.listMyOrders(req.user!.userId, {
         page,

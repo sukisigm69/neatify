@@ -30,6 +30,15 @@ export const authController = {
     }
   },
 
+  async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await authService.updateProfile(req.user!.userId, req.body);
+      sendSuccess(res, user, "Profile updated");
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async registerOrganizer(req: Request, res: Response, next: NextFunction) {
     try {
       const organizer = await authService.registerOrganizer(req.user!.userId, req.body);

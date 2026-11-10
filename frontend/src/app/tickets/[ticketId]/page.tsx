@@ -6,6 +6,7 @@ import { ArrowLeft, CalendarDays, Clock, MapPin, DoorOpen, User, Mail, Phone, Co
 import { StatusBadge } from "@/components/StatusBadge";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { EventBannerImage } from "@/components/EventBannerImage";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -76,15 +77,17 @@ export default function TicketDetailPage({ params }: { params: Promise<{ ticketI
           <div className="max-w-xl mx-auto">
             <div className="bg-white rounded-lg border border-brand-border overflow-hidden relative ticket-perforation" style={{ "--perf-y": "62%" } as React.CSSProperties}>
               <div className="h-48 relative">
-                {ticket.eventBanner ? (
+                <EventBannerImage
+                  src={ticket.eventBanner}
+                  alt={ticket.event || "Event"}
+                  className="h-full w-full object-cover"
+                  fallbackClassName="flex h-full w-full items-center justify-center bg-primary-container/20 text-primary/30"
+                  iconSize={32}
+                />
+                {ticket.eventBanner && (
                   <>
-                    <Image src={ticket.eventBanner} alt={ticket.event || ""} fill className="object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   </>
-                ) : (
-                  <div className="w-full h-full bg-primary-container/20 flex items-center justify-center">
-                    <span className="font-display text-2xl font-bold text-primary/30">K</span>
-                  </div>
                 )}
                 <div className="absolute bottom-4 left-5 right-5 text-white">
                   <h1 className="font-display text-xl font-bold">{ticket.event}</h1>

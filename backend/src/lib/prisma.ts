@@ -1,17 +1,34 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 
-// Extract credentials and endpoint parameters from DATABASE_URL
 // Format: mysql://user:pass@host:port/db or mysql://user@host:port/db or with options
-const dbUrl = process.env.DATABASE_URL!;
-const matches = dbUrl.match(/mysql:\/\/([^:]+):?([^@]+)?@([^:]+):(\d+)\/([^?]+)/);
-if (!matches) throw new Error("Invalid DATABASE_URL format");
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) throw new Error("DATABASE_URL is not set");
 
-const [, user, password = "", host, port, database] = matches;
+let connectionUrl: URL;
+try {
+  connectionUrl = new URL(dbUrl);
+} catch {
+  throw new Error("DATABASE_URL must be a valid MySQL connection URL");
+}
+
+if (connectionUrl.protocol !== "mysql:") {
+  throw new Error("DATABASE_URL must use the mysql:// protocol");
+}
+
+const host = connectionUrl.hostname;
+const port = Number(connectionUrl.port || 3306);
+const database = decodeURIComponent(connectionUrl.pathname.slice(1));
+const user = decodeURIComponent(connectionUrl.username);
+const password = decodeURIComponent(connectionUrl.password);
+
+if (!host || !database || !user) {
+  throw new Error("DATABASE_URL must include a username, host, and database");
+}
 
 const adapter = new PrismaMariaDb({
   host,
-  port: parseInt(port),
+  port,
   connectionLimit: 10,
   user,
   password,

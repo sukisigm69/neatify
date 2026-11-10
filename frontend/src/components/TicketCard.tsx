@@ -1,9 +1,9 @@
 import React from "react";
 import { Ticket } from "@/lib/store";
-import { Calendar, MapPin, Ticket as TicketIcon } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "./StatusBadge";
-import Image from "next/image";
+import { EventBannerImage } from "./EventBannerImage";
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -13,16 +13,13 @@ export const TicketCard: React.FC<TicketCardProps> = ({ ticket }) => {
   return (
     <div className="group bg-brand-surface rounded-xl overflow-hidden border border-brand-border/50 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5">
       <div className="h-40 bg-brand-muted relative overflow-hidden flex items-center justify-center">
-        {ticket.eventBanner ? (
-          <Image
-            src={ticket.eventBanner}
-            alt={ticket.event || "Event"}
-            fill
-            className="object-cover group-hover:scale-[1.02] transition-transform duration-500"
-          />
-        ) : (
-          <TicketIcon size={28} className="text-brand-primary/30" />
-        )}
+        <EventBannerImage
+          src={ticket.eventBanner}
+          alt={ticket.event || "Event"}
+          className="h-full w-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+          fallbackClassName="flex h-full w-full items-center justify-center text-brand-primary/30"
+          iconSize={28}
+        />
         <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm rounded-md p-1 shadow-sm">
           <StatusBadge status={ticket.ticketStatus} />
         </div>

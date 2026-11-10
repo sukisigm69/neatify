@@ -141,21 +141,44 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
   const refreshOrder = async (orderId: string) => {
     setRefreshingOrder(true);
+    setMessage("");
     try {
+      let syncedPaymentStatus: string | undefined;
+      try {
+        const paymentRes = await api.post(`/payments/${orderId}/status`);
+        syncedPaymentStatus = paymentRes.data.data.paymentStatus;
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } } };
+        setMessage(error.response?.data?.message || "Could not verify payment status. Please refresh the order.");
+      }
+
       const res = await api.get(`/orders/${orderId}`);
       if (res.data.success) {
-        setOrder(res.data.data);
-        if (res.data.data.status === "EXPIRED") setPaymentStatus("expired");
-        if (res.data.data.status === "CONFIRMED") setPaymentStatus("success");
-        if (res.data.data.status === "CANCELLED") setPaymentStatus("failed");
+        const detail = res.data.data;
+        const orderData = detail.order ?? detail;
+        setOrder({
+          id: orderData.id,
+          invoice_number: orderData.invoiceNumber ?? orderData.invoice_number,
+          total_amount: String(orderData.totalAmount ?? orderData.total_amount),
+          status: orderData.status,
+          expires_at: orderData.expiresAt ?? orderData.expires_at,
+        });
+
+        const status = syncedPaymentStatus ?? detail.payment?.status;
+        if (orderData.status === "CONFIRMED" || status === "PAID") setPaymentStatus("success");
+        else if (orderData.status === "EXPIRED" || status === "EXPIRED") setPaymentStatus("expired");
+        else if (orderData.status === "CANCELLED" || status === "FAILED") setPaymentStatus("failed");
+        else if (status === "PENDING") setPaymentStatus("pending");
       }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setMessage(error.response?.data?.message || "Could not refresh the order. Please try again.");
     } finally {
       setRefreshingOrder(false);
     }
   };
 
-  const handleSnapStatus = async (status: "success" | "pending" | "failed" | "expired", orderId: string) => {
-    setPaymentStatus(status);
+  const handleSnapStatus = async (orderId: string) => {
     await refreshOrder(orderId);
   };
 
@@ -166,9 +189,9 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
     }
 
     window.snap.pay(tokenValue, {
-      onSuccess: () => handleSnapStatus("success", orderId),
-      onPending: () => handleSnapStatus("pending", orderId),
-      onError: () => handleSnapStatus("failed", orderId),
+      onSuccess: () => handleSnapStatus(orderId),
+      onPending: () => handleSnapStatus(orderId),
+      onError: () => handleSnapStatus(orderId),
       onClose: () => refreshOrder(orderId),
     });
   };
@@ -244,6 +267,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 <SummaryRow label="Total" value={`Rp ${Number(order.total_amount).toLocaleString()}`} />
               </div>
               {paymentStatusMessage(paymentStatus) && <p className="text-xs text-on-surface-variant mb-5">{paymentStatusMessage(paymentStatus)}</p>}
+              {paymentStatus === "success" && (
+                <Link href="/tickets" className="mb-3 flex h-[44px] w-full items-center justify-center rounded-full bg-primary-container font-semibold text-sm text-white hover:opacity-90 transition-opacity">
+                  Lihat Tiket Saya
+                </Link>
+              )}
               {snapToken ? (
                 <button onClick={() => openSnap(snapToken, order.id)} className="w-full h-[44px] rounded-full bg-primary-container text-white font-semibold text-sm cursor-pointer hover:opacity-90 transition-opacity">
                   Open Snap Payment

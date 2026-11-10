@@ -96,6 +96,7 @@ export const orderRepository: any = {
             select: {
               status: true,
               method: true,
+              snap_token: true,
             },
           },
           order_items: {

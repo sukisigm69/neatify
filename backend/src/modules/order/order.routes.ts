@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { orderController } from "./order.controller";
 import { validate } from "../../middleware/validate";
 import { authenticate, authorize } from "../../middleware/auth";
@@ -26,7 +26,7 @@ const validateParams = (schema: z.ZodSchema) => {
 };
 
 const validateQuery = (schema: z.ZodSchema) => {
-  return (req: any, _res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.query);
     if (!result.success) {
       const errors = result.error.issues.map((e) => ({
@@ -35,7 +35,7 @@ const validateQuery = (schema: z.ZodSchema) => {
       }));
       return next(require("../../utils/api-error").ApiError.badRequest("Validation failed", errors));
     }
-    req.query = result.data;
+    res.locals.orderQuery = result.data;
     next();
   };
 };

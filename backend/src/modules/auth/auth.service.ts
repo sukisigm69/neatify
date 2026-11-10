@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Prisma } from "@prisma/client";
 import { authRepository } from "./auth.repository";
-import { RegisterInput, LoginInput, RegisterOrganizerInput } from "./auth.schema";
+import { RegisterInput, LoginInput, RegisterOrganizerInput, UpdateProfileInput } from "./auth.schema";
 import { ApiError } from "../../utils/api-error";
 import { JwtPayload } from "../../middleware/auth";
 import prisma from "../../lib/prisma";
@@ -69,6 +69,14 @@ export const authService = {
     const user = await authRepository.findUserById(userId);
     if (!user) throw ApiError.notFound("User not found");
     return stripPassword(user);
+  },
+
+  async updateProfile(userId: string, input: UpdateProfileInput) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) throw ApiError.notFound("User not found");
+
+    const updatedUser = await authRepository.updateUserProfile(userId, input);
+    return stripPassword(updatedUser);
   },
 
   async registerOrganizer(userId: string, input: RegisterOrganizerInput) {

@@ -103,10 +103,12 @@ export const orderService = {
       });
 
       return {
+        id: o.id,
         invoiceNumber: o.invoice_number,
         orderStatus: o.status,
         paymentStatus: payment?.status || "PENDING",
         paymentMethod: payment?.method || null,
+        hasPaymentSession: Boolean(payment?.snap_token),
         purchaseDate: o.created_at,
         grandTotal: Number(o.total_amount),
         totalTicket,
