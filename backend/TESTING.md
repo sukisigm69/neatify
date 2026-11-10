@@ -11,10 +11,10 @@
 ```bash
 cd backend
 
-# Install dependencies
-npm install
+# Install dependencies and generate Prisma Client
+npm ci
 
-# Generate Prisma client
+# Run this again after changing the Prisma schema or installing with --ignore-scripts
 npm run db:generate
 
 # Run migrations
