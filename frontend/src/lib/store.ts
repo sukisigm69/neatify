@@ -224,8 +224,14 @@ export interface Ticket {
   attendeePhone: string;
   orderNumber: string | null;
   purchaseDate: string | null;
+  itemQuantity?: number | null;
+  unitPrice?: number | null;
+  itemSubtotal?: number | null;
   event: string | null;
   venue: string | null;
+  venueAddress?: string | null;
+  venueCity?: string | null;
+  venueProvince?: string | null;
   artists: string[];
   ticketCategory: string | null;
   eventBanner: string | null;
